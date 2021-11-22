@@ -2,7 +2,6 @@
 
 module.exports = {
   name: 'Model Internationalization Plugin',
-  menu: './menu/menu.js',
-  script: './client/client.js',
+  script: './client/client-bundle.js',
   style: './style/style.css'
 };

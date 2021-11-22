@@ -41,12 +41,12 @@ function ModelI18NPlugin(elementRegistry, editorActions, canvas, modeling, event
 
   ModelI18NPlugin.prototype.onChange = function (event) {
     event.preventDefault();
-    self.renameIDs(event.target.value);
+    self.ChangeLanguage(event.target.value);
   }
-  this.addRenameIDsContainer(canvas.getContainer().parentNode);
+  this.addChangeLanguageContainer(canvas.getContainer().parentNode);
 
   eventBus.on('import.done', function () {
-    self.addRenameIDsContainer(canvas.getContainer().parentNode);
+    self.addChangeLanguageContainer(canvas.getContainer().parentNode);
     self.generateAndShow();
   });
 }
@@ -56,7 +56,7 @@ ModelI18NPlugin.prototype.generateAndShow = function() {
   this.showLangs();
 };
 
-ModelI18NPlugin.prototype.addRenameIDsContainer = function(container) {
+ModelI18NPlugin.prototype.addChangeLanguageContainer = function(container) {
   var self = this;
   var markup = '<div class="djs-popup dgs-model-i18n"> \
       <select class="id-list"></select> \
@@ -172,7 +172,7 @@ ModelI18NPlugin.prototype.showLangs = function() {
   this.options = opts;
 };
 
-ModelI18NPlugin.prototype.renameIDs = function (id) {
+ModelI18NPlugin.prototype.ChangeLanguage = function (id) {
   var self = this;
   var lang = id; //arguments[0];
   var elements = this._elementRegistry._elements;
