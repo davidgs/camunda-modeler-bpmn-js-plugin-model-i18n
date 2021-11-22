@@ -19,6 +19,8 @@ Usage:
 ![Screenshot 2](screenshot2.png)
 
 Put this directory into the `plugins` directory of the Camunda Modeler and you're ready to go.
-First click on the "Generate IDs" button and check if all IDs are fine. Then click on Rename IDs and save your BPMN file.
+If there are translations in your model, you can select the language from the dropdown and your model will be displayed in that language.
+
+**NOTE:** This plugin will not provide translations but will only display translations that _already_ exist in your model. 
 
 If you're interested in how to create your own plugins see the [documentation](https://github.com/camunda/camunda-modeler/tree/547-plugins/docs/plugins) and this [example](https://github.com/camunda/camunda-modeler-plugin-example).
