@@ -30,14 +30,16 @@ var domify = require('min-dom/lib/domify'),
     domQuery = require('min-dom/lib/query'),
     clear = require('min-dom/lib/clear');
 const event = require('min-dom/lib/event');
-
-
+const BpmnModeler = require('bpmn-js/lib/Modeler');
+const BpmnModdle =  require('bpmn-moddle');
+const BpmnI18nSchema = require('./resources/bpmn-i18n.json');
+const cloneDeep = require('clone-deep');
 // The default language
 const defaultLanguage = "en";
 
 //config key
 const configKey = "modeli18n";
-
+const moddle = new BpmnModdle();
 const defaultState = {
   currentLanguage: defaultLanguage,
   languages: ["en"],
@@ -69,8 +71,12 @@ function ModelI18NPlugin(elementRegistry, editorActions, canvas, modeling, event
   this.addChangeLanguageContainer(canvas.getContainer().parentNode);
 
   eventBus.on('import.done', function () {
-    self.addChangeLanguageContainer(canvas.getContainer().parentNode);
-    self.generateAndShow();
+    if(!self.state.languagesLoaded) {
+      self.addChangeLanguageContainer(canvas.getContainer().parentNode);
+      self.generateAndShow();
+      self.state.languagesLoaded = true;
+    }
+
   });
 }
 
@@ -89,7 +95,7 @@ ModelI18NPlugin.prototype.addChangeLanguageContainer = function(container) {
   container.appendChild(this.element);
 
   domEvent.bind(domQuery('.id-list', this.element), 'change', function (event) {
-    self.onChange(event);
+    self.onChange(event, {passive: true});
   });
 };
 
@@ -105,9 +111,20 @@ ModelI18NPlugin.prototype.generateLangs = function () {
       var en_name = elements[key].element.businessObject.name;
       if (businessObject.hasOwnProperty('extensionElements')) {
         if (businessObject.extensionElements.hasOwnProperty('values')) {
-          var boo = Object.assign({}, businessObject.extensionElements.values[0]);
-          boo.$body = en_name;
-          boo[lang] = 'en';
+          var desc = {
+            isGeneric: true,
+            name: "i18n:translation",
+            ns: {
+              prefix: 'i18n',
+              localName: 'translation',
+              uri: "http://www.omg.org/spec/BPMN/non-normative/extensions/i18n/1.0"
+            }
+          }
+          const tmpElem = cloneDeep(businessObject.extensionElements.values[0], true);
+          var enElement = moddle.create('bpmn:ExtensionElements', { values: [tmpElem] });
+          enElement.values[0].$body = en_name;
+          enElement.values[0][lang] = 'en';
+          enElement.values[0].$descriptor = desc;
           var hasEnglish = false;
           businessObject.extensionElements.values.forEach(function (value) {
             if (value.hasOwnProperty(lang)) {
@@ -121,7 +138,7 @@ ModelI18NPlugin.prototype.generateLangs = function () {
             }
           });
           if (!hasEnglish) {
-            businessObject.extensionElements.values.push(boo);
+            businessObject.extensionElements.values.push(enElement.values[0]);
           }
         }
       }
@@ -189,7 +206,7 @@ ModelI18NPlugin.prototype.showLangs = function() {
     }
     var ele = domQuery('.id-list');
     domEvent.bind(ele, 'change', function (event, value) {
-      self.onChange(event, value);
+      self.onChange(event, value, {passive: true});
     });
   }
   this.options = opts;
