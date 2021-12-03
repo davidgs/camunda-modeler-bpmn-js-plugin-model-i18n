@@ -22,7 +22,11 @@
  * SOFTWARE.
  */
 
-import {registerClientExtension} from 'camunda-modeler-plugin-helpers';
+import {registerClientExtension, registerBpmnJSModdleExtension, registerBpmnJSPlugin } from 'camunda-modeler-plugin-helpers';
 import ModelI18nPlugin from '../ModelI18nPlugin';
-
+import I18NPropertiesProvider from './bpmn-js-extension/propertiesProvider/I18NPropertiesProvider';
+import i18n from './bpmn-js-extension/propertiesProvider/i18n.json'
+registerBpmnJSExtension(I18NPropertiesProvider);
+registerBpmnJSPlugin(ModelI18nPlugin);
+registerBpmnJSModdleExtension(i18n);
 registerClientExtension(ModelI18nPlugin);

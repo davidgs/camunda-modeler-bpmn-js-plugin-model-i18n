@@ -4,20 +4,10 @@
   "prefix": "i18n",
   "types": [
     {
-      "name": "ExtensionElementsWithTranslations",
-      "extends": [
-        "bpmn:ExtensionElements"
+      "name": "Translation",
+      "superClass": [
+        "Element"
       ],
-      "properties": [
-        {
-          "name": "translations",
-          "type": "Translation",
-          "isMany": true
-        }
-      ]
-    },
-    {
-      "name": "translation",
       "properties": [
         {
           "name": "id",
@@ -41,12 +31,6 @@
           "isAttr": "true",
           "type": "String",
           "default": "text/plain"
-        },
-        {
-          "isGeneric": true,
-          "name": "i18n:translation",
-          "isDescriptor": "true",
-          "type": "boolean"
         }
       ]
     }
