@@ -1,8 +1,7 @@
 import inherits from 'inherits';
-import { is } from 'bpmn-js/lib/util/ModelUtil';
 import PropertiesActivator from 'bpmn-js-properties-panel/lib/PropertiesActivator';
 
-export default function I18NPropertiesProvider(eventBus, commandStack, bpmnFactory, translate, selection, propertiesProvider, elementRegistry) {
+export default function I18NPropertiesProvider(eventBus, translate, elementRegistry) {
   PropertiesActivator.call(this, eventBus);
 
   const self = this;
@@ -90,4 +89,4 @@ export default function I18NPropertiesProvider(eventBus, commandStack, bpmnFacto
 
 inherits(I18NPropertiesProvider, PropertiesActivator);
 
-I18NPropertiesProvider.$inject = ['eventBus', 'commandStack', 'bpmnFactory', 'translate', 'selection', 'propertiesProvider', 'elementRegistry'];
+I18NPropertiesProvider.$inject = ['eventBus', 'translate', 'elementRegistry'];

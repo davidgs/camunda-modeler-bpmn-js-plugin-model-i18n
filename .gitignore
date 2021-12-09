@@ -4,6 +4,7 @@
 
 # Generated files that should not be included in repository
 /node_modules/
+yarn.lock
 
 ### macOS ###
 # General
