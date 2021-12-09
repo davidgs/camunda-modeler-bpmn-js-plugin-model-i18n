@@ -25,226 +25,285 @@
 'use strict';
 
 var domify = require('min-dom/lib/domify'),
-    domEvent = require('min-dom/lib/event'),
-    domClasses = require('min-dom/lib/classes'),
-    domQuery = require('min-dom/lib/query'),
-    clear = require('min-dom/lib/clear');
+  domEvent = require('min-dom/lib/event'),
+  domClasses = require('min-dom/lib/classes'),
+  domQuery = require('min-dom/lib/query'),
+  clear = require('min-dom/lib/clear');
 const event = require('min-dom/lib/event');
-const BpmnModeler = require('bpmn-js/lib/Modeler');
-const BpmnModdle =  require('bpmn-moddle');
-const BpmnI18nSchema = require('./resources/bpmn-i18n.json');
-const cloneDeep = require('clone-deep');
+
+
+
 // The default language
 const defaultLanguage = "en";
 
-//config key
-const configKey = "modeli18n";
-const moddle = new BpmnModdle();
 const defaultState = {
   currentLanguage: defaultLanguage,
   languages: ["en"],
   options: [{ value: "en", label: "English" }],
-  languagesLoaded: false,
   selected: 'en'
 };
-function ModelI18NPlugin(elementRegistry, editorActions, canvas, modeling, eventBus) {
+function ModelI18NPlugin(elementRegistry, editorActions, canvas, modeling, eventBus, bpmnjs) {
   this._elementRegistry = elementRegistry;
   this._modeling = modeling;
+  this._bpmnFactory = modeling._elementFactory._bpmnFactory;
+  this._moddle = modeling._elementFactory._moddle;
+  this.bpmnjs = bpmnjs;
+  this.importDone = false;
+  this.defaultLanguage = '';
 
   var self = this;
-
   this.state = defaultState;
 
   editorActions.register({
-    generateLangs: function() {
+    generateLangs: function () {
       self.generateAndShow();
     },
-    onChange: function(event) {
+    onChange: function (event) {
       self.onChange(event);
     }
   });
 
+  // fired when the language is changed
   ModelI18NPlugin.prototype.onChange = function (event) {
     event.preventDefault();
     self.ChangeLanguage(event.target.value);
   }
-  this.addChangeLanguageContainer(canvas.getContainer().parentNode);
 
+  // Look for Languages after the model is done loading
   eventBus.on('import.done', function () {
-    if(!self.state.languagesLoaded) {
-      self.addChangeLanguageContainer(canvas.getContainer().parentNode);
-      self.generateAndShow();
-      self.state.languagesLoaded = true;
+    self.defaultLanguage = bpmnjs._definitions.$attrs['xml:lang']
+    self.addChangeLanguageContainer(canvas.getContainer().parentNode);
+    self.generateAndShow();
+    self.state.languagesLoaded = true;
+    if (self.state.languages.length <= 1) {
+      self.destroyLanguageContainer(canvas.getContainer().parentNode)
     }
+    self.importDone = true;
+  });
 
+  // only does anything when you come back from looking at the raw XML
+  eventBus.on('canvas.resized', function () {
+    if (!self.importDone) {
+      return;
+    }
+    self.defaultLanguage = bpmnjs._definitions.$attrs['xml:lang']
+    self.addChangeLanguageContainer(canvas.getContainer().parentNode);
+    self.generateAndShow();
+    self.state.languagesLoaded = true;
+    if (self.state.languages.length <= 1) {
+      self.destroyLanguageContainer(canvas.getContainer().parentNode)
+    }
+  });
+
+  // when you save he diagram, or go look at raw XML, remove the english
+  // <i18n:Translation> elements.
+  eventBus.on('saveXML.start', function () {
+    self.destroyLanguageContainer(canvas.getContainer().parentNode);
+    self.destroyDefault();
+  });
+
+}
+
+// remove all the <i18n:Translation> objects we inserted.
+ModelI18NPlugin.prototype.destroyDefault = function () {
+  var self = this;
+  self.ChangeLanguage(self.defaultLanguage);
+  const elementRegistry = this._elementRegistry;
+  const elements = elementRegistry._elements;
+  const modeling = this._modeling;
+  Object.keys(elements).forEach(function (key) {
+    const task = elementRegistry.get(key);
+    const busObj = task.businessObject;
+    if (busObj != undefined && busObj != null) {
+      if (busObj.hasOwnProperty('extensionElements')) {
+        var extElements = busObj.extensionElements
+        if (extElements.hasOwnProperty('values')) {
+          var vals = extElements.values;
+          Object.keys(vals).forEach(function (key) {
+            if (vals[key].$type === 'i18n:Translation') {
+              if (vals[key].$attrs['xml:lang'] === self.defaultLanguage) {
+                vals.splice(key, 1);
+              }
+            }
+          });
+          busObj.extensionElements.values = vals;
+          modeling.updateProperties(task, {
+            extensionElements: extElements
+          });
+        }
+      }
+    }
   });
 }
 
-ModelI18NPlugin.prototype.generateAndShow = function() {
+// go spelunking through the model and find all the languages
+// and generate the options for the dropdown
+ModelI18NPlugin.prototype.generateAndShow = function () {
   this.generateLangs();
   this.showLangs();
 };
 
-ModelI18NPlugin.prototype.addChangeLanguageContainer = function(container) {
+// add the dropdown to the canvas
+ModelI18NPlugin.prototype.addChangeLanguageContainer = function (container) {
   var self = this;
-  var markup = '<div class="djs-popup dgs-model-i18n"> \
+  var markup = '<div id="langElem" class="djs-popup dgs-model-i18n"> \
       <select class="id-list"></select> \
     </div>';
   this.element = domify(markup);
-
   container.appendChild(this.element);
-
   domEvent.bind(domQuery('.id-list', this.element), 'change', function (event) {
-    self.onChange(event, {passive: true});
+    self.onChange(event, { passive: true });
   });
 };
 
+// remove the dropdown from the canvas if we only have 1 language.
+ModelI18NPlugin.prototype.destroyLanguageContainer = function (container) {
+  var el = document.getElementById('langElem');
+  if (el != undefined && el != null) {
+    container.removeChild(el);
+  }
+};
+
+// go spelunking through the model and find all the languages
+// when we find them, register them, and add an entry for the default language
 ModelI18NPlugin.prototype.generateLangs = function () {
   var self = this;
   var langs = [];
-  langs.push('en');
-  var elements = this._elementRegistry._elements;
-  const lang = "xml:lang";
+  langs.push(self.defaultLanguage);
+  const elementRegistry = this._elementRegistry;
+  const elements = elementRegistry._elements;
+  const bpmnFactory = this._bpmnFactory;
+  const modeling = this._modeling;
   Object.keys(elements).forEach(function (key) {
-    if (elements[key].type != 'label') {
-      var businessObject = elements[key].element.businessObject;
-      var en_name = elements[key].element.businessObject.name;
-      if (businessObject.hasOwnProperty('extensionElements')) {
-        if (businessObject.extensionElements.hasOwnProperty('values')) {
-          var desc = {
-            isGeneric: true,
-            name: "i18n:translation",
-            ns: {
-              prefix: 'i18n',
-              localName: 'translation',
-              uri: "http://www.omg.org/spec/BPMN/non-normative/extensions/i18n/1.0"
+    const task = elementRegistry.get(key);
+    const busObj = task.businessObject;
+    var en_name = busObj.name;
+    if (busObj.hasOwnProperty('extensionElements')) {
+      if (busObj.extensionElements.hasOwnProperty('values')) {
+        var hasDefault = false;
+        busObj.extensionElements.values.forEach(function (value) {
+          if (value.$type === 'i18n:Translation') {
+            if (value.$attrs['xml:lang'] === self.defaultLanguage) {
+              hasDefault = true;
+            }
+            if (!langs.includes(value.$attrs['xml:lang'])) {
+              langs.push(value.$attrs['xml:lang']);
             }
           }
-          const tmpElem = cloneDeep(businessObject.extensionElements.values[0], true);
-          var enElement = moddle.create('bpmn:ExtensionElements', { values: [tmpElem] });
-          enElement.values[0].$body = en_name;
-          enElement.values[0][lang] = 'en';
-          enElement.values[0].$descriptor = desc;
-          var hasEnglish = false;
-          businessObject.extensionElements.values.forEach(function (value) {
-            if (value.hasOwnProperty(lang)) {
-              var labelLang = value[lang];
-              if (labelLang == 'en') {
-                hasEnglish = true;
-              }
-              if (!langs.includes(labelLang)) {
-                langs.push(labelLang);
-              }
-            }
+        });
+        if (!hasDefault) {
+          const extElements = busObj.get("extensionElements");
+          const translation = bpmnFactory.create("i18n:Translation");
+          translation.$parent = extElements;
+          translation.$attrs['xml:lang'] = self.defaultLanguage;
+          translation.body = en_name;
+          extElements.get("values").push(translation);
+          modeling.updateProperties(task, {
+            extensionElements: extElements
           });
-          if (!hasEnglish) {
-            businessObject.extensionElements.values.push(enElement.values[0]);
-          }
         }
       }
     }
   });
   if (langs.length > 0) {
-    this.state.languages = langs;
+    self.state.languages = langs;
   }
 };
 
-ModelI18NPlugin.prototype.showLangs = function() {
+// Build the languages menu...
+ModelI18NPlugin.prototype.showLangs = function () {
   var self = this;
   var opts = [];
-  var idList = domQuery('.id-list',this.element);
+  var idList = domQuery('.id-list', this.element);
   clear(idList);
   let langs = this.state.languages;
   if (!langs.length > 0) {
     return;
   }
   if (langs != null && langs.length > 0) {
-    for (var x = 0; x < langs.length; x++) {
-      switch (langs[x]) {
+    Object.keys(langs).forEach(function (key) {
+      switch (langs[key]) {
         case "en":
-          var lang = 'English';
+          opts.push({ value: langs[key], label: 'English' });
           break;
         case "de":
-          var lang = 'German';
+          opts.push({ value: langs[key], label: 'German' });
           break;
         case "fr":
-          var lang = 'French';
+          opts.push({ value: langs[key], label: 'French' });
           break;
         case "es":
-          var lang = 'Spanish';
+          opts.push({ value: langs[key], label: 'Spanish' });
           break;
         case "it":
-          var lang = 'Italian';
+          opts.push({ value: langs[key], label: 'Italian' });
           break;
         case "nl":
-          var lang = 'Dutch';
+          opts.push({ value: langs[key], label: 'Dutch' });
           break;
         case "pt":
-          var lang = 'Portuguese';
+          opts.push({ value: langs[key], label: 'Portuguese' });
           break;
         case "ru":
-          var lang = 'Russian';
+          opts.push({ value: langs[key], label: 'Russian' });
           break;
         case "sv":
-          var lang = 'Swedish';
+          opts.push({ value: langs[key], label: 'Swedish' });
           break;
         case "zh":
-          var lang = 'Chinese';
+          opts.push({ value: langs[key], label: 'Chinese' });
           break;
         default:
-          var lang = langs[x];
+          opts.push({ value: langs[key], label: langs[key] });
       }
-      opts.push({ value: langs[x], label: lang });
-    }
+    });
   }
   if (opts.length > 0) {
-    for (var x = 0; x < opts.length; x++){
-      var el = "<option value=" + opts[x].value + ">" + opts[x].label + "</option>"
-      this.element = domify(el);
-
-      idList.appendChild(this.element);
-    }
+    Object.keys(opts).forEach(function (key) {
+      var el = "<option value=" + opts[key].value + ">" + opts[key].label + "</option>"
+      var element = domify(el);
+      idList.appendChild(element);
+    });
     var ele = domQuery('.id-list');
     domEvent.bind(ele, 'change', function (event, value) {
-      self.onChange(event, value, {passive: true});
+      self.onChange(event, value, { passive: true });
     });
   }
   this.options = opts;
 };
 
+// Fired when we change the language.
 ModelI18NPlugin.prototype.ChangeLanguage = function (id) {
   var self = this;
-  var lang = id; //arguments[0];
-  var elements = this._elementRegistry._elements;
-  const langAttr = "xml:lang";
+  var lang = id;
+  const elementRegistry = this._elementRegistry;
+  const elements = elementRegistry._elements;
   Object.keys(elements).forEach(function (key) {
-    if (elements[key].type != 'label') {
-      var element = elements[key].element;
-      var businessObject = elements[key].element.businessObject;
-      if (businessObject.hasOwnProperty('extensionElements')) {
-        var exts = businessObject.extensionElements;
-        if (exts != null) {
-          for (var z = 0; z < exts.values.length; z++) {
-            if (exts.values[z].hasOwnProperty(langAttr)) {
-              if (exts.values[z][langAttr] == lang) {
-                var label = exts.values[z].$body;
-                var props = {
-                  name: label,
-                }
-                self._modeling.updateProperties(element, props);
+    const task = elementRegistry.get(key);
+    const busObj = task.businessObject;
+    if (task != undefined && busObj != undefined) {
+      if (busObj.hasOwnProperty('extensionElements') && busObj.extensionElements.values != undefined) {
+        var exts = busObj.extensionElements.values;
+        Object.keys(exts).forEach(function (key) {
+          if (exts[key].$attrs.hasOwnProperty('xml:lang')) {
+            if (exts[key].$attrs['xml:lang'] === lang) {
+              var label = exts[key].body;
+              var props = {
+                name: label,
               }
+              self._modeling.updateProperties(task, props);
             }
           }
-        }
+        });
       }
     }
   });
 };
 
 
-ModelI18NPlugin.$inject = [ 'elementRegistry', 'editorActions', 'canvas', 'modeling', 'eventBus' ];
+ModelI18NPlugin.$inject = ['elementRegistry', 'editorActions', 'canvas', 'modeling', 'eventBus', 'bpmnjs'];
 
 module.exports = {
-    __init__: ['modelI18NPlugin'],
-    modelI18NPlugin: ['type', ModelI18NPlugin]
+  __init__: ['modelI18NPlugin'],
+  modelI18NPlugin: ['type', ModelI18NPlugin]
 };

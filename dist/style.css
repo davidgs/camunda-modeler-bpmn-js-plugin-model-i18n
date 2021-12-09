@@ -1,0 +1,51 @@
+
+.dgs-model-i18n {
+  position: absolute;
+  bottom: 450px;
+  left: 20px;
+  background: white;
+  overflow: hidden;
+}
+
+.dgs-model-i18n select {
+  width: 100%;
+  height: 35px;
+  border: none;
+  outline: none;
+  background: #198754;
+  font-size: 16px;
+  color: #fff;
+  border-radius: 5px;
+}
+
+.dgs-model-i18n button {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  margin: 4px;
+  padding: 4px 10px;
+}
+.dgs-model-i18n ul {
+  padding-left: 4px;
+  padding-right: 4px;
+  max-height: 100px;
+  overflow: auto;
+}
+.dgs-model-i18n-toggle {
+  width: 80px;
+  height: 24px;
+  cursor: default;
+}
+.dgs-model-i18n.open .dgs-model-i18n-toggle {
+  height: 35px;
+  width: 100%;
+}
+.dgs-model-i18n-toggle:hover {
+  background: #666;
+}
+.dgs-model-i18n .dgs-model-i18n-container {
+  display: none;
+}
+.dgs-model-i18n.open .dgs-model-i18n-container {
+  display: block;
+}

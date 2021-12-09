@@ -21,9 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+const I18NPropertiesProvider = require('./propertiesProvider/I18NPropertiesProvider');
 
-import { registerBpmnJSPlugin, registerBpmnJSModdleExtension } from 'camunda-modeler-plugin-helpers';
-import ModelI18nPlugin from './ModelI18nPlugin';
-import i18n from './bpmn-js-extension/propertiesProvider/i18n.json'
-registerBpmnJSModdleExtension(i18n);
-registerBpmnJSPlugin(ModelI18nPlugin);
+export default {
+  __init__: ['I18NPropertiesProvider'],
+  I18NPropertiesProvider: ['type', I18NPropertiesProvider]
+};
